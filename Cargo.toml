@@ -1,0 +1,18 @@
+[package]
+name = "vibe-sh"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+license = "MIT"
+description = "The vibeOS interactive shell"
+repository = "https://github.com/vibedOS/vibe-sh"
+
+[dependencies]
+vibe-rt = { git = "https://github.com/vibedOS/vibe-rt", rev = "f14d41c3aa67f5808c94396788953448f58ccc62" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+strip = "symbols"
