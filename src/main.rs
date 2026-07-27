@@ -9,7 +9,17 @@ use vibe_rt::{Args, Env, Errno, Result, entry, eprintln, getpid, print, read, re
 
 entry!(main);
 
-fn main(_args: Args<'_>, _env: Env<'_>) -> i32 {
+fn main(mut args: Args<'_>, _env: Env<'_>) -> i32 {
+    let _program = args.next();
+    if args.next() == Some(b"-c") {
+        let Some(command) = args.next() else {
+            eprintln!("vibe-sh: -c requires a command");
+            return 2;
+        };
+        run(command);
+        return 0;
+    }
+
     vibe_rt::println!("vibe-sh 0.1");
     let mut input = [0_u8; 512];
 
