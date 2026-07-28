@@ -114,8 +114,13 @@ fn run(input: &mut [u8], length: usize) -> bool {
         b"help" => {
             let _ = write_all(
                 output as usize,
-                b"builtins: help echo cd uname pid reboot exit\n",
+                b"builtins: help clear echo cd uname pid reboot exit\n\
+commands: true false whoami vibefetch pwd cat ls mkdir rm\n",
             );
+            true
+        }
+        b"clear" => {
+            let _ = write_all(output as usize, b"\x1b[2J\x1b[H");
             true
         }
         b"echo" => {

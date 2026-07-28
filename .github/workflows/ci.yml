@@ -20,6 +20,8 @@ jobs:
           ! readelf -l target/x86_64-unknown-linux-gnu/release/vibe-sh | grep -q INTERP
           ! readelf -d target/x86_64-unknown-linux-gnu/release/vibe-sh | grep -q NEEDED
           target/x86_64-unknown-linux-gnu/release/vibe-sh -c 'cd /'
+          target/x86_64-unknown-linux-gnu/release/vibe-sh -c help | grep -F 'builtins: help clear echo cd uname pid reboot exit'
+          test "$(target/x86_64-unknown-linux-gnu/release/vibe-sh -c clear)" = "$(printf '\033[2J\033[H')"
           output=$(mktemp)
           target/x86_64-unknown-linux-gnu/release/vibe-sh -c "echo redirected > $output"
           test "$(cat "$output")" = "redirected"
