@@ -27,7 +27,8 @@ from `/bin`.
 | `exit` | exit the shell |
 
 vibeOS also installs `true`, `false`, `whoami`, `vibefetch`, `pwd`, `cat`,
-`ls`, `mkdir`, and `rm` in `/bin`.
+`ls`, `mkdir`, `rm`, and `vibe-pkg` in `/bin`. Run `vibe-pkg list` to
+discover executables installed later.
 
 ## Build and check
 
