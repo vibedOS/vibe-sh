@@ -8,8 +8,8 @@ use core::panic::PanicInfo;
 use core::ptr;
 use core::str;
 use vibe_rt::{
-    Args, Env, Errno, Fork, Result, change_dir, entry, eprintln, execve, fork, getpid, print, read,
-    reboot, wait_pid, write_all,
+    Args, Env, Errno, Fork, Result, change_dir, close, duplicate_to, entry, eprintln, execve, fork,
+    getpid, open_write, print, read, reboot, wait_pid, write_all,
 };
 
 entry!(main);
@@ -74,65 +74,127 @@ fn drain_line() {
 }
 
 fn run(input: &mut [u8], length: usize) -> bool {
+    let (length, redirect) = match redirection(&input[..length]) {
+        Ok(redirection) => redirection,
+        Err(()) => {
+            eprintln!("vibe-sh: usage: COMMAND > FILE");
+            return true;
+        }
+    };
+    let output = match redirect {
+        Some(path) => {
+            let mut storage = [0_u8; 512];
+            let Some(path) = argument_path(path, &mut storage) else {
+                eprintln!("vibe-sh: redirect path too long");
+                return true;
+            };
+            match open_write(path) {
+                Ok(output) => output,
+                Err(error) => {
+                    eprintln!("vibe-sh: redirect failed: errno {}", error.0);
+                    return true;
+                }
+            }
+        }
+        None => 1,
+    };
+
     let line = &input[..length];
     let mut words = line
         .split(|byte| byte.is_ascii_whitespace())
         .filter(|word| !word.is_empty());
     let Some(command) = words.next() else {
+        if output != 1 {
+            let _ = close(output);
+        }
         return true;
     };
 
-    match command {
+    let keep_running = match command {
         b"help" => {
-            vibe_rt::println!("builtins: help echo cd uname pid reboot exit");
-            return true;
+            let _ = write_all(
+                output as usize,
+                b"builtins: help echo cd uname pid reboot exit\n",
+            );
+            true
         }
         b"echo" => {
             for (index, word) in words.enumerate() {
                 if index != 0 {
-                    let _ = write_all(1, b" ");
+                    let _ = write_all(output as usize, b" ");
                 }
-                let _ = write_all(1, word);
+                let _ = write_all(output as usize, word);
             }
-            vibe_rt::println!();
-            return true;
+            let _ = write_all(output as usize, b"\n");
+            true
         }
         b"cd" => {
             let directory = words.next().unwrap_or(b"/");
             if words.next().is_some() {
                 eprintln!("usage: cd [DIRECTORY]");
-                return true;
+            } else {
+                let mut storage = [0_u8; 512];
+                if let Some(directory) = argument_path(directory, &mut storage) {
+                    if let Err(error) = change_dir(directory) {
+                        eprintln!("cd: errno {}", error.0);
+                    }
+                } else {
+                    eprintln!("cd: path too long");
+                }
             }
-            let mut storage = [0_u8; 512];
-            let Some(directory) = argument_path(directory, &mut storage) else {
-                eprintln!("cd: path too long");
-                return true;
-            };
-            if let Err(error) = change_dir(directory) {
-                eprintln!("cd: errno {}", error.0);
-            }
-            return true;
+            true
         }
         b"uname" => {
-            vibe_rt::println!("vibeOS Linux 7.1.5 x86_64");
-            return true;
+            let _ = write_all(output as usize, b"vibeOS Linux 7.1.5 x86_64\n");
+            true
         }
         b"pid" => {
-            vibe_rt::println!("{}", getpid());
-            return true;
+            print(format_args!("{}\n", getpid()), output as usize);
+            true
         }
         b"reboot" => {
             if let Err(error) = reboot() {
                 eprintln!("vibe-sh: reboot failed: errno {}", error.0);
             }
-            return true;
+            true
         }
-        b"exit" => return false,
-        _ => {}
+        b"exit" => false,
+        _ => {
+            drop(words);
+            run_external(input, length, output);
+            true
+        }
+    };
+
+    if output != 1 {
+        let _ = close(output);
+    }
+    keep_running
+}
+
+fn redirection(line: &[u8]) -> core::result::Result<(usize, Option<&[u8]>), ()> {
+    let Some(marker) = line.iter().position(|byte| *byte == b'>') else {
+        return Ok((line.len(), None));
+    };
+    if line[marker + 1..].contains(&b'>') {
+        return Err(());
     }
 
-    run_external(input, length);
-    true
+    let mut command_end = marker;
+    while command_end != 0 && line[command_end - 1].is_ascii_whitespace() {
+        command_end -= 1;
+    }
+    let target = line[marker + 1..]
+        .split(|byte| byte.is_ascii_whitespace())
+        .filter(|word| !word.is_empty());
+    let mut target = target;
+    let Some(path) = target.next() else {
+        return Err(());
+    };
+    if command_end == 0 || target.next().is_some() {
+        return Err(());
+    }
+    Ok((command_end, Some(path)))
 }
 
 fn argument_path<'a>(value: &[u8], storage: &'a mut [u8]) -> Option<&'a CStr> {
@@ -144,7 +206,7 @@ fn argument_path<'a>(value: &[u8], storage: &'a mut [u8]) -> Option<&'a CStr> {
     CStr::from_bytes_with_nul(&storage[..=value.len()]).ok()
 }
 
-fn run_external(input: &mut [u8], length: usize) {
+fn run_external(input: &mut [u8], length: usize, output: i32) {
     input[length] = 0;
     // ponytail: 32 arguments cover the bring-up shell; raise this fixed ceiling if real usage needs it.
     let mut arguments = [ptr::null::<c_char>(); 33];
@@ -182,6 +244,13 @@ fn run_external(input: &mut [u8], length: usize) {
 
     match fork() {
         Ok(Fork::Child) => {
+            if output != 1 {
+                if let Err(error) = duplicate_to(output, 1) {
+                    eprintln!("vibe-sh: redirect failed: errno {}", error.0);
+                    vibe_rt::exit(1)
+                }
+                let _ = close(output);
+            }
             // SAFETY: Both arrays are NUL-terminated and point into live stack buffers.
             if let Err(error) = unsafe { execve(path, arguments.as_ptr(), environment.as_ptr()) } {
                 eprintln!(

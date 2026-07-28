@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "vibe-rt"
 version = "0.1.0"
-source = "git+https://github.com/vibedOS/vibe-rt?rev=7bac5094776ffe718e76e32cd17eea54b36141f3#7bac5094776ffe718e76e32cd17eea54b36141f3"
+source = "git+https://github.com/vibedOS/vibe-rt?rev=ef39f48963bce8a8dffcbef4b028f96594416f33#ef39f48963bce8a8dffcbef4b028f96594416f33"
 
 [[package]]
 name = "vibe-sh"

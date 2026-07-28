@@ -20,3 +20,7 @@ jobs:
           ! readelf -l target/x86_64-unknown-linux-gnu/release/vibe-sh | grep -q INTERP
           ! readelf -d target/x86_64-unknown-linux-gnu/release/vibe-sh | grep -q NEEDED
           target/x86_64-unknown-linux-gnu/release/vibe-sh -c 'cd /'
+          output=$(mktemp)
+          target/x86_64-unknown-linux-gnu/release/vibe-sh -c "echo redirected > $output"
+          test "$(cat "$output")" = "redirected"
+          rm "$output"
