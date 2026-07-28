@@ -8,7 +8,7 @@ description = "The vibeOS interactive shell"
 repository = "https://github.com/vibedOS/vibe-sh"
 
 [dependencies]
-vibe-rt = { git = "https://github.com/vibedOS/vibe-rt", rev = "e975459347bef8f946395bfcb6a5326dc1417082" }
+vibe-rt = { git = "https://github.com/vibedOS/vibe-rt", rev = "7bac5094776ffe718e76e32cd17eea54b36141f3" }
 
 [profile.dev]
 panic = "abort"
