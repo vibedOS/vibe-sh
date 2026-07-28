@@ -8,8 +8,8 @@ use core::panic::PanicInfo;
 use core::ptr;
 use core::str;
 use vibe_rt::{
-    Args, Env, Errno, Fork, Result, entry, eprintln, execve, fork, getpid, print, read, reboot,
-    wait_pid, write_all,
+    Args, Env, Errno, Fork, Result, change_dir, entry, eprintln, execve, fork, getpid, print, read,
+    reboot, wait_pid, write_all,
 };
 
 entry!(main);
@@ -84,7 +84,7 @@ fn run(input: &mut [u8], length: usize) -> bool {
 
     match command {
         b"help" => {
-            vibe_rt::println!("builtins: help echo uname pid reboot exit");
+            vibe_rt::println!("builtins: help echo cd uname pid reboot exit");
             return true;
         }
         b"echo" => {
@@ -95,6 +95,22 @@ fn run(input: &mut [u8], length: usize) -> bool {
                 let _ = write_all(1, word);
             }
             vibe_rt::println!();
+            return true;
+        }
+        b"cd" => {
+            let directory = words.next().unwrap_or(b"/");
+            if words.next().is_some() {
+                eprintln!("usage: cd [DIRECTORY]");
+                return true;
+            }
+            let mut storage = [0_u8; 512];
+            let Some(directory) = argument_path(directory, &mut storage) else {
+                eprintln!("cd: path too long");
+                return true;
+            };
+            if let Err(error) = change_dir(directory) {
+                eprintln!("cd: errno {}", error.0);
+            }
             return true;
         }
         b"uname" => {
@@ -117,6 +133,15 @@ fn run(input: &mut [u8], length: usize) -> bool {
 
     run_external(input, length);
     true
+}
+
+fn argument_path<'a>(value: &[u8], storage: &'a mut [u8]) -> Option<&'a CStr> {
+    if value.len() >= storage.len() {
+        return None;
+    }
+    storage[..value.len()].copy_from_slice(value);
+    storage[value.len()] = 0;
+    CStr::from_bytes_with_nul(&storage[..=value.len()]).ok()
 }
 
 fn run_external(input: &mut [u8], length: usize) {
