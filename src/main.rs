@@ -115,7 +115,8 @@ fn run(input: &mut [u8], length: usize) -> bool {
             let _ = write_all(
                 output as usize,
                 b"builtins: help clear echo cd uname pid reboot exit\n\
-commands: true false whoami vibefetch pwd cat ls mkdir rm\n",
+commands: true false whoami vibefetch pwd cat ls mkdir rm vibe-pkg\n\
+packages: run vibe-pkg list\n",
             );
             true
         }

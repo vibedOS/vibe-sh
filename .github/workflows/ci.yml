@@ -21,6 +21,8 @@ jobs:
           ! readelf -d target/x86_64-unknown-linux-gnu/release/vibe-sh | grep -q NEEDED
           target/x86_64-unknown-linux-gnu/release/vibe-sh -c 'cd /'
           target/x86_64-unknown-linux-gnu/release/vibe-sh -c help | grep -F 'builtins: help clear echo cd uname pid reboot exit'
+          target/x86_64-unknown-linux-gnu/release/vibe-sh -c help | grep -F 'commands: true false whoami vibefetch pwd cat ls mkdir rm vibe-pkg'
+          target/x86_64-unknown-linux-gnu/release/vibe-sh -c help | grep -F 'packages: run vibe-pkg list'
           test "$(target/x86_64-unknown-linux-gnu/release/vibe-sh -c clear)" = "$(printf '\033[2J\033[H')"
           output=$(mktemp)
           target/x86_64-unknown-linux-gnu/release/vibe-sh -c "echo redirected > $output"
